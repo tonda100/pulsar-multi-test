@@ -37,7 +37,6 @@ public class ConsumerService {
         try {
             consumer = pulsarClient.newConsumer(Schema.STRING)
                     .topicsPattern(String.format("%s/%s/.*", tenant, namespace))
-                    //.topic(String.format("%s/%s/abc", tenant, namespace))
                     .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                     .subscriptionType(SubscriptionType.Failover)
                     .subscriptionName(subscriberName)

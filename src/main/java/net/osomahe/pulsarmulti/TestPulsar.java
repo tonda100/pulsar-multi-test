@@ -20,17 +20,18 @@ public class TestPulsar implements QuarkusApplication {
     @Inject
     ConsumerService consumer;
 
+    @Inject
+    GeneratorService generator;
+
     @Override
     @ActivateRequestContext
     public int run(String... args) throws Exception {
-        log.info("Producing START");
-        Map<String, List<String>> produced = producer.produceMessages();
-        log.info("Producing DONE");
-        //System.out.println("Waiting for message 1 minute");
-        //TimeUnit.MINUTES.sleep(2);
+        final Map<String, List<String>> data = generator.generateData();
+
+        producer.produceData(data);
         consumer.getData()
                 //.onItem().delayIt().by(Duration.ofSeconds(20))
-                .onItem().transform(consumed -> check(produced, consumed))
+                .onItem().transform(consumed -> check(data, consumed))
                 .onFailure().retry()
                 .withBackOff(Duration.ofSeconds(10), Duration.ofSeconds(10))
                 .atMost(300)
@@ -52,7 +53,7 @@ public class TestPulsar implements QuarkusApplication {
     }
 
     private boolean check(Map<String, List<String>> produced, Map<String, List<String>> consumed) {
-        log.info("P:" + produced.size() +", C:" +consumed.size());
+        log.info("P:" + produced.size() + ", C:" + consumed.size());
         if (produced == null || produced.isEmpty()) {
             throw new MessageCheckException();
         }
@@ -64,7 +65,7 @@ public class TestPulsar implements QuarkusApplication {
             }
             List<String> pMsg = produced.get(p);
             List<String> cMsg = consumed.get(p);
-            for(String pm : pMsg){
+            for (String pm : pMsg) {
                 if (!cMsg.contains(pm)) {
                     throw new MessageCheckException();
                 }

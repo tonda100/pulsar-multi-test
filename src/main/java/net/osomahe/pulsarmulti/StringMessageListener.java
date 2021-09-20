@@ -21,7 +21,6 @@ public class StringMessageListener implements MessageListener<String> {
     @Override
     public void received(Consumer<String> consumer, Message<String> message) {
         try {
-            log.debug(message.getValue());
             String topicName = message.getTopicName().substring(message.getTopicName().lastIndexOf('/') + 1);
             List<String> messages;
             synchronized (data) {
@@ -34,12 +33,12 @@ public class StringMessageListener implements MessageListener<String> {
             }
             messages.add(message.getValue());
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error consuming data.", e);
         } finally {
             try {
                 consumer.acknowledge(message);
             } catch (PulsarClientException e) {
-                e.printStackTrace();
+                log.error("Error in ack.", e);
             }
         }
     }

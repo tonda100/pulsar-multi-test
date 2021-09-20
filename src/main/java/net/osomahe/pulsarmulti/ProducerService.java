@@ -2,15 +2,19 @@ package net.osomahe.pulsarmulti;
 
 import org.apache.pulsar.client.api.*;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
 
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @RequestScoped
 public class ProducerService {
+    private static final Logger log = Logger.getLogger(ProducerService.class);
 
     @Inject
     @ConfigProperty(name = "pulsar.producer-name")
@@ -25,15 +29,7 @@ public class ProducerService {
     @Inject
     PulsarClient pulsarClient;
 
-    @Inject
-    GeneratorService generator;
-
-
-    public Map<String, List<String>> produceMessages() {
-        Map<String, List<String>> data = generator.generateData();
-        data.entrySet().forEach(entry -> publish(entry.getKey(), entry.getValue()));
-        return data;
-    }
+    AtomicInteger count = new AtomicInteger(0);
 
 
     private void publish(String topic, List<String> messages) {
@@ -46,10 +42,34 @@ public class ProducerService {
                 .topic(String.format("%s/%s/%s", tenant, namespace, topic))
                 .create()) {
             for (String message : messages) {
-                producer.send(message);
+                sendMessage(producer, message);
             }
-        } catch (PulsarClientException e) {
+            log.debug(String.format("Produced topic[%s]: %s", count.incrementAndGet(), topic));
+            Thread.sleep(1_000);
+        } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private void sendMessage(Producer<String> producer, String message) {
+        try {
+            producer.send(message);
+        } catch (PulsarClientException e) {
+            log.warn("Trying again", e);
+            try {
+                Thread.sleep(3_000);
+            } catch (InterruptedException ex) {
+                ex.printStackTrace();
+            }
+            sendMessage(producer, message);
+        }
+    }
+
+    public void produceData(Map<String, List<String>> data) {
+        Executors.newSingleThreadExecutor().submit(() -> {
+            for (Map.Entry<String, List<String>> entry : data.entrySet()) {
+                publish(entry.getKey(), entry.getValue());
+            }
+        });
     }
 }
